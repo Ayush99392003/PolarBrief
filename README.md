@@ -78,4 +78,4 @@ MIT License © 2025
 
 ## 👤 Author
 
-**Ayush Agarwal** – [@ayushagrwl]([https://github.com/ayushagrwl](https://github.com/Ayush99392003)
+**Ayush Agarwal** – [@ayushagrwl]([https://github.com/ayushagrwl](https://github.com/Ayush99392003))
