@@ -9,7 +9,7 @@ PolarBrief is a Streamlit-based web app that allows you to upload a legal PDF br
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/polarbrief.git
+git clone https://github.com/Ayush99392003/PolarBrief.git
 cd polarbrief
 ```
 
@@ -17,7 +17,7 @@ cd polarbrief
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+venv\Scripts\activate
 ```
 
 ### 3. Install Requirements
@@ -26,19 +26,17 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Add Environment Variables
+### 4. Change api key
 
-Create a `.env` file in the root directory:
+
+
+Add your own api key:
 
 ```
 GROQ_API_KEY=your_groq_api_key_here
 ```
 
-Or set it in your terminal:
 
-```bash
-export GROQ_API_KEY=your_groq_api_key_here
-```
 
 ### 5. Start the Streamlit App
 
@@ -71,24 +69,6 @@ streamlit run app.py
 
 ---
 
-## ✅ Requirements
-
-```
-streamlit
-pdfplumber
-openai
-fpdf
-unidecode
-python-dotenv
-```
-
-Install with:
-
-```bash
-pip install -r requirements.txt
-```
-
----
 
 ## 📄 License
 
