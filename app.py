@@ -1,25 +1,17 @@
 import streamlit as st
-from logic import (
-    extract_pdf_lines,
-    chunk_lines_into_paragraphs,
-    parse_argument_results,
-    create_pdf_from_dict,
-    create_pdf_from_top10,
-    create_zip_archive
-)
-import json
+from logic import DocumentProcessor
 import os
+import json
+import zipfile
+import io
+from fpdf import FPDF
+import unicodedata
 
-if "lines" not in st.session_state:
-    st.session_state.lines = None
-if "paragraphs" not in st.session_state:
-    st.session_state.paragraphs = None
-if "parsed_results" not in st.session_state:
-    st.session_state.parsed_results = None
-if "top_10" not in st.session_state:
-    st.session_state.top_10 = None
+# === UI Setup ===
+st.set_page_config(page_title="Legal Argument Analyzer", layout="wide")
 
-BACKGROUND_IMAGE_URL = "https://images.pexels.com/photos/159832/justice-law-case-hearing-159832.jpeg"
+BACKGROUND_IMAGE_URL = "https://i.pinimg.com/736x/64/eb/ef/64ebefbbd558d77f1a1e0d01a4e050c1.jpg"
+
 
 st.markdown(f"""
     <style>
@@ -92,75 +84,134 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="PolarBrief", layout="wide")
+# === Title ===
+st.markdown('<div class="title-box"><h1>PolarBrief AI - Legal Argument Analyzer</h1></div>', unsafe_allow_html=True)
 
-st.markdown('<div class="title-box"><h1>PolarBrief : AI Driven Pro/Con Argument Miner</h1></div>', unsafe_allow_html=True)
-st.markdown('<div class="main-box"> <h2>Upload a legal brief PDF and analyze it line by line, paragraph by paragraph using LLMs.</h2></div>', unsafe_allow_html=True)
+# === Backend Setup ===
 
-uploaded_file = st.file_uploader("📄 Upload PDF", type="pdf")
+poppler_path = r"C:\Users\ayush\Videos\poppler-24.08.0\Library\bin"
+tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-if uploaded_file:
-    st.markdown('<div class="section-header">📑 Extracting Lines from PDF</div>', unsafe_allow_html=True)
-    with st.spinner("Extracting lines..."):
-        st.session_state.lines = extract_pdf_lines(uploaded_file)
-        st.success(f"✅ Extracted {len(st.session_state.lines)} lines.")
+groq_api_key = os.getenv("GROQ_API_KEY")
 
-    st.markdown('<div class="section-header">🧾 Chunking Lines into Paragraphs</div>', unsafe_allow_html=True)
-    with st.spinner("Chunking..."):
-        st.session_state.paragraphs = chunk_lines_into_paragraphs(st.session_state.lines)
-        st.success(f"✅ Chunked into {len(st.session_state.paragraphs)} paragraphs.")
+# === Upload PDF ===
+uploaded_file = st.file_uploader("📄 Upload PDF Document", type=["pdf"])
 
-    st.markdown('<div class="section-header">⚖️ Argument Analysis</div>', unsafe_allow_html=True)
-    with st.spinner("Analyzing with LLM..."):
-        st.session_state.parsed_results = parse_argument_results(st.session_state.paragraphs)
+if uploaded_file is not None:
+    temp_file = "temp_upload.pdf"
+    with open(temp_file, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    
+    if st.button("Analyze Document"):
+        if not groq_api_key:
+            st.error("Please provide your GROQ API key.")
+            st.stop()
 
-        pro_args = sorted(
-            [p for p in st.session_state.parsed_results if p["polarity"].lower() == "pro"],
-            key=lambda x: x["score"],
-            reverse=True
-        )[:5]
-        con_args = sorted(
-            [p for p in st.session_state.parsed_results if p["polarity"].lower() == "con"],
-            key=lambda x: x["score"],
-            reverse=True
-        )[:5]
-        st.session_state.top_10 = {"top_5_pro": pro_args, "top_5_con": con_args}
+        os.environ["GROQ_API_KEY"] = groq_api_key
+        processor = DocumentProcessor()
+        with st.spinner("🔍 Processing document..."):
+            try:
+                results = processor.process_document(
+                    pdf_path=temp_file,
+                    poppler_path=poppler_path,
+                    tesseract_path=tesseract_path
+                )
 
-if st.session_state.top_10:
-    st.markdown('<div class="section-header">🟢 Top 5 Pro Arguments</div>', unsafe_allow_html=True)
-    for i, arg in enumerate(st.session_state.top_10["top_5_pro"], 1):
-        st.markdown(f"**{i}.** *Score: {arg['score']} | Page: {arg['page']}*")
-        st.info(arg["summary"])
+                # Save JSONs
+                with open("legal_argument_analysis_ranked.json", "w", encoding="utf-8") as f:
+                    json.dump(results["full_analysis"], f, indent=2)
 
-    st.markdown('<div class="section-header">🔴 Top 5 Con Arguments</div>', unsafe_allow_html=True)
-    for i, arg in enumerate(st.session_state.top_10["top_5_con"], 1):
-        st.markdown(f"**{i}.** *Score: {arg['score']} | Page: {arg['page']}*")
-        st.error(arg["summary"])
+                with open("top_10.json", "w", encoding="utf-8") as f:
+                    json.dump(results["top_arguments"], f, indent=2)
 
-    st.markdown('<div class="section-header">📥 Download All Results</div>', unsafe_allow_html=True)
+                argument_minimal = [
+                    {
+                        "page": item.get("page", ""),
+                        "citation": item.get("citation", ""),
+                        "heading": item.get("heading", "")
+                    }
+                    for item in results["full_analysis"]
+                ]
+                with open("argument_minimal.json", "w", encoding="utf-8") as f:
+                    json.dump(argument_minimal, f, indent=2)
 
-    files_to_zip = {
-        "lines.json": json.dumps(st.session_state.lines, indent=2, ensure_ascii=False),
-        "lines.pdf": create_pdf_from_dict(st.session_state.lines, "Line-by-Line Text").getvalue(),
-        "paragraphs.json": json.dumps(st.session_state.paragraphs, indent=2, ensure_ascii=False),
-        "paragraphs.pdf": create_pdf_from_dict(st.session_state.paragraphs, "Paragraph-by-Paragraph Text").getvalue(),
-        "arguments.json": json.dumps(st.session_state.parsed_results, indent=2, ensure_ascii=False),
-        "arguments.pdf": create_pdf_from_dict(st.session_state.parsed_results, "All Legal Arguments").getvalue(),
-        "top_10.json": json.dumps(st.session_state.top_10, indent=2, ensure_ascii=False),
-        "top_10.pdf": create_pdf_from_top10(st.session_state.top_10).getvalue(),
-    }
+                # === PDF Utilities ===
+                def clean_text(text):
+                    if not isinstance(text, str):
+                        text = str(text)
+                    return unicodedata.normalize("NFKD", text).encode("latin1", "ignore").decode("latin1")
 
-    zip_data = create_zip_archive(files_to_zip)
+                class PDF(FPDF):
+                    def header(self):
+                        self.set_font("Arial", "B", 14)
+                        self.ln(5)
 
-    st.download_button(
-        "📦 Download All as ZIP",
-        data=zip_data,
-        file_name="polarbrief_outputs.zip",
-        mime="application/zip"
-    )
-    if st.button("🔁 Reset App"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
+                    def chapter_body(self, entry, selected_fields):
+                        self.set_font("Arial", "", 11)
+                        for field in selected_fields:
+                            label = clean_text(field.replace("_", " ").title())
+                            value = clean_text(entry.get(field, ""))
+                            self.multi_cell(0, 8, f"{label}: {value}")
+                            self.ln(1)
+                        self.ln(3)
+                        self.cell(0, 0, "-" * 80)
+                        self.ln(5)
 
-st.markdown("</div>", unsafe_allow_html=True)
+                def generate_pdf(data, fields, filename):
+                    pdf = PDF()
+                    pdf.add_page()
+                    for item in data:
+                        pdf.chapter_body(item, fields)
+                    pdf.output(filename)
+                    return filename
+
+                detailed_pdf = generate_pdf(
+                    results["full_analysis"],
+                    ["page", "citation", "heading", "summary", "polarity"],
+                    "legal_argument_analysis_ranked.pdf"
+                )
+
+                minimal_pdf = generate_pdf(
+                    argument_minimal,
+                    ["page", "citation", "heading"],
+                    "legal_argument_minimal.pdf"
+                )
+
+                # === ZIP Creation ===
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+                    zip_file.write("legal_argument_analysis_ranked.json")
+                    zip_file.write("top_10.json")
+                    zip_file.write("argument_minimal.json")
+                    zip_file.write("legal_argument_analysis_ranked.pdf")
+                    zip_file.write("legal_argument_minimal.pdf")
+                zip_buffer.seek(0)
+
+                st.success("✅ Analysis complete!")
+
+                # === Display Top Arguments ===
+                st.markdown('<div class="section-header">Top Arguments</div>', unsafe_allow_html=True)
+                for i, arg in enumerate(results["top_arguments"], 1):
+                    with st.expander(f"Argument #{i} (Score: {arg['final_score']:.1f}) - {arg['heading']}"):
+                        st.markdown(f"**Page:** {arg['page']}")
+                        st.markdown(f"**Citation:** {arg['citation']}")
+                        st.markdown(f"**Polarity:** {arg['polarity']}")
+                        st.markdown("**Summary:**")
+                        st.write(arg["summary"])
+                        st.markdown("**Full Text:**")
+                        st.write(arg["text"])
+
+                # === Download Section ===
+                st.markdown('<div class="section-header">⬇Download Bundle</div>', unsafe_allow_html=True)
+                st.download_button(
+                    label="Download All Results as ZIP",
+                    data=zip_buffer,
+                    file_name="legal_argument_bundle.zip",
+                    mime="application/zip"
+                )
+
+            except Exception as e:
+                st.error(f" An error occurred: {str(e)}")
+            finally:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
