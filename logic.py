@@ -1,203 +1,258 @@
-import pdfplumber
-import json
-from typing import List, Dict
-from openai import OpenAI
 import os
-from fpdf import FPDF
-from io import BytesIO
-from unidecode import unidecode 
-import zipfile
+import json
+import re
+from typing import List, Dict
+import pytesseract
+from pdf2image import convert_from_path
+from PIL import Image
+import pdfplumber
+from datetime import datetime
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from langchain_groq import ChatGroq
+from langchain.schema import HumanMessage, SystemMessage
+from pydantic import BaseModel, Field
 
-os.environ["GROQ_API_KEY"] = "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"  
+# Constants
+POLARBRIEF_VERSION = "PolarBrief v1.0"
 
-client = OpenAI(
-    api_key=os.getenv("GROQ_API_KEY"),
-    base_url="https://api.groq.com/openai/v1"
-)
+class ArgumentAnalysis(BaseModel):
+    heading: str
+    contains_argument: str
+    summary: str
+    polarity: str = Field(default="N/A")
+    score: float = Field(ge=0, le=100)
 
-class UnicodePDF(FPDF):
+class DocumentProcessor:
     def __init__(self):
-        super().__init__()
-        self.set_font( size=12)
-        self.set_auto_page_break(auto=True, margin=15)
+        self.llm = ChatGroq(
+            model_name="llama3-8b-8192",
+            temperature=0,
+        )
+        
+    def clean_text(self, text: str) -> str:
+        text = re.sub(r"[•·●♦▪•∙]", "", text)
+        text = re.sub(r"[^\w\s,.:;()\"'-]", "", text)
+        text = re.sub(r"\s{2,}", " ", text)
+        return text.strip()
 
-def create_pdf_from_dict(data: List[Dict], title: str = "Document") -> BytesIO:
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Arial", size=12)
+    def is_noisy(self, text: str, threshold: float = 0.6) -> bool:
+        if not text:
+            return True
+        non_alpha = sum(1 for c in text if not c.isalnum())
+        return (non_alpha / len(text)) > threshold
 
-    pdf.cell(200, 10, txt=unidecode(title), ln=True, align='C')
-    pdf.ln(10)
+    def has_repeated_characters(self, text: str, repeat_threshold: int = 4) -> bool:
+        return bool(re.search(r'(.)\1{' + str(repeat_threshold) + ',}', text))
 
-    for i, item in enumerate(data, 1):
-        pdf.set_font("Arial", 'B', 12)
-        pdf.multi_cell(0, 10, txt=f"{i}.")
-        pdf.set_font("Arial", size=12)
+    def extract_text_with_fallback(self, pdf_path: str, poppler_path: str) -> List[Dict]:
+        final_output = []
+        
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                total_pages = len(pdf.pages)
 
-        for key, value in item.items():
-            if isinstance(value, str) and value.strip():
-                pdf.multi_cell(0, 10, txt=unidecode(value.strip()))
-                pdf.ln(2)
+                for page_num, page in enumerate(pdf.pages, start=1):
+                    page_line_no = 1
+                    text = page.extract_text()
+                    lines = text.split("\n") if text else []
 
-        pdf.ln(5)
+                    if lines and sum(len(l.strip()) for l in lines) > 20:
+                        for line in lines:
+                            cleaned = line.strip()
+                            if cleaned:
+                                final_output.append({
+                                    "text": cleaned,
+                                    "page_no": f"[p{page_num} {page_line_no}]",
+                                    "method": "pdfplumber"
+                                })
+                                page_line_no += 1
+                        continue
 
-    output = BytesIO()
-    output.write(pdf.output(dest='S').encode('latin1'))
-    output.seek(0)
-    return output
+                    # OCR Fallback
+                    images = convert_from_path(
+                        pdf_path, dpi=300, first_page=page_num, 
+                        last_page=page_num, poppler_path=poppler_path
+                    )
+                    img = images[0]
+                    gray = img.convert("L")
+                    bw = gray.point(lambda x: 0 if x < 180 else 255, '1')
 
-def create_pdf_from_top10(top_10_dict: Dict) -> BytesIO:
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.set_auto_page_break(auto=True, margin=15)
+                    ocr_text = pytesseract.image_to_string(bw, lang='eng')
+                    lines = ocr_text.strip().split("\n")
+                    line_no = 1
 
-    # Pro Arguments
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(200, 10, txt="Top 5 Pro Arguments", ln=True, align='C')
-    pdf.ln(10)
+                    for line in lines:
+                        cleaned_line = self.clean_text(line)
+                        if (cleaned_line and not self.is_noisy(cleaned_line) and 
+                            not self.has_repeated_characters(cleaned_line)):
+                            final_output.append({
+                                "text": cleaned_line,
+                                "page_no": f"[p{page_num} {line_no}]",
+                                "method": "ocr"
+                            })
+                            line_no += 1
 
-    pdf.set_font("Arial", size=12)
-    for i, arg in enumerate(top_10_dict.get("top_5_pro", []), 1):
-        summary = arg.get("summary", "").strip()
-        if summary:
-            pdf.multi_cell(0, 10, txt=f"{i}. {unidecode(summary)}")
-            pdf.ln(5)
+        except Exception as e:
+            print(f"[ERROR] Failed during PDF processing: {e}")
 
-    # Con Arguments
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(200, 10, txt="Top 5 Con Arguments", ln=True, align='C')
-    pdf.ln(10)
+        return final_output
 
-    pdf.set_font("Arial", size=12)
-    for i, arg in enumerate(top_10_dict.get("top_5_con", []), 1):
-        summary = arg.get("summary", "").strip()
-        if summary:
-            pdf.multi_cell(0, 10, txt=f"{i}. {unidecode(summary)}")
-            pdf.ln(5)
+    def count_tokens_simple(self, text: str) -> int:
+        return len(text.split())
 
-    output = BytesIO()
-    output.write(pdf.output(dest='S').encode('latin1'))
-    output.seek(0)
-    return output
+    def chunk_lines_simple_tokenizer(self, lines: List[Dict], max_tokens: int = 250) -> List[Dict]:
+        chunks = []
+        current_lines = []
+        current_tokens = 0
+        citation_line = None
+        citation_page = None
 
+        for line in lines:
+            text = line["text"].strip()
+            tokens = self.count_tokens_simple(text)
 
-def extract_pdf_lines(uploaded_file) -> List[Dict]:
-    output = []
-    with pdfplumber.open(uploaded_file) as pdf:
-        for page_num, page in enumerate(pdf.pages, start=1):
-            text = page.extract_text()
-            if not text:
-                continue
-            lines = text.split('\n')
-            for line_num, line in enumerate(lines, start=1):
-                cleaned_line = line.strip()
-                if cleaned_line:
-                    output.append({
-                        "page": page_num,
-                        "line": line_num,
-                        "text": cleaned_line
-                    })
-    return output
-
-def create_zip_archive(file_dict: dict) -> BytesIO:
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for filename, content in file_dict.items():
-            if isinstance(content, str):
-                content = content.encode("utf-8")
-            zip_file.writestr(filename, content)
-    zip_buffer.seek(0)
-    return zip_buffer
-
-
-def chunk_lines_into_paragraphs(lines: List[Dict], max_gap: int = 1) -> List[Dict]:
-    paragraphs = []
-    current_para = {"page": None, "start_line": None, "end_line": None, "text": []}
-    for i, line in enumerate(lines):
-        content = line["text"].strip()
-        if not content:
-            continue
-        if current_para["text"] == []:
-            current_para["page"] = line["page"]
-            current_para["start_line"] = line["line"]
-        current_para["text"].append(content)
-        current_para["end_line"] = line["line"]
-        if i + 1 < len(lines):
-            next_line = lines[i + 1]
-            same_page = next_line["page"] == line["page"]
-            line_gap = next_line["line"] - line["line"]
-            if not same_page or line_gap > max_gap:
-                paragraphs.append({
-                    "page": current_para["page"],
-                    "start_line": current_para["start_line"],
-                    "end_line": current_para["end_line"],
-                    "text": " ".join(current_para["text"])
+            if current_tokens + tokens > max_tokens and current_lines:
+                chunk_text = "\n".join([l["text"] for l in current_lines])
+                chunks.append({
+                    "page": citation_page,
+                    "citation": citation_line,
+                    "text": chunk_text
                 })
-                current_para = {"page": None, "start_line": None, "end_line": None, "text": []}
-    if current_para["text"]:
-        paragraphs.append({
-            "page": current_para["page"],
-            "start_line": current_para["start_line"],
-            "end_line": current_para["end_line"],
-            "text": " ".join(current_para["text"])
-        })
-    return paragraphs
+                current_lines = []
+                current_tokens = 0
+                citation_line = None
+                citation_page = None
 
+            if not current_lines and text:
+                citation_line = text
+                citation_page = line["page_no"]
 
-def get_argument_analysis(paragraph: str):
-    prompt = f"""
-You are a legal assistant AI.
+            current_lines.append(line)
+            current_tokens += tokens
+
+        if current_lines:
+            chunk_text = "\n".join([l["text"] for l in current_lines])
+            chunks.append({
+                "page": citation_page,
+                "citation": citation_line,
+                "text": chunk_text
+            })
+
+        return chunks
+
+    def get_argument_analysis(self, text: str) -> ArgumentAnalysis:
+        system_prompt = """You are a legal assistant AI.
 
 Given the paragraph below from a legal brief:
-1. Does it contain a legal argument? (yes/no)
-2. If yes, summarize it in ≤75 words.
-3. Classify it as Pro (supports Plaintiffs) or Con (supports Defendants).
-4. Score the argument on a scale of 0 - 100 based on weight ,clarity, relevance, and quality etc and other aspects .
 
-Respond in JSON like this:
-{{
+1. Please summarize the paragraph <<<
+    Your summary must:
+            1. Do not hallucinate Your summary must be based **only** on paragraph. Do not add, infer, or interpret anything beyond what is explicitly stated.
+            2. Clearly and accurately capture the **main legal points or facts** in the text in points and then summarize those points in paragraph.
+            3. the summary paragraph must be of >75 words .
+            4. After writing the summary, **verify** that it fully aligns with the original text and does not introduce errors or hallucinations.>>>
+            
+2. Give a appropriate heading that the text is about.
+3. Does it contain a legal argument? (yes/no)
+4. if yes , Classify it as Pro (supports Plaintiffs) or Con (supports Defendants) , else "N/A"
+5. Score the argument on a scale of 0 - 100 based on weight, clarity, relevance, and quality.
+6. Do not fabricate content; if uncertain, answer contains_argument: "no"
+
+Respond ONLY in Valid JSON , no prose:
+{
+  "heading" : "..." ,
   "contains_argument": "...",
   "summary": "...",
   "polarity": "Pro/Con",
-  "start line": "..",
-  "end line":"...",
-  "score":"..."
-}}
+  "score": <float 0-100>
+}"""
+        prompt = f'<<<Paragraph:\n"""{text}""">>>'
 
-Paragraph:
-\"\"\"{paragraph}\"\"\"
-"""
-    response = client.chat.completions.create(
-        model="llama3-8b-8192",
-        messages=[
-            {"role": "system", "content": "You are a legal assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3,
-        max_tokens=512
-    )
-    return response.choices[0].message.content.strip()
-
-
-def parse_argument_results(paragraphs: List[Dict]) -> List[Dict]:
-    results = []
-    for para in paragraphs:
-        raw = get_argument_analysis(para['text'])
+        response = self.llm([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=prompt)
+        ])
+        
         try:
-            json_part = raw[raw.index("{"):raw.rindex("}")+1]
-            data = json.loads(json_part)
-            if data.get("contains_argument", "").lower() == "yes":
-                results.append({
-                    "summary": data.get("summary", ""),
-                    "polarity": data.get("polarity", ""),
-                    "score": float(data.get("score", 0)),
-                    "start_line": int(data.get("start line", 0)),
-                    "end_line": int(data.get("end line", 0)),
-                    "page": para["page"]
-                })
-        except Exception as e:
-            continue
-    return results
+            match = re.search(r"\{[\s\S]+?\}", response.content.strip())
+            if match:
+                parsed = json.loads(match.group(0))
+                return ArgumentAnalysis(**parsed)
+        except (ValidationError, json.JSONDecodeError) as e:
+            print("Error parsing LLM JSON:", e)
+        
+        return ArgumentAnalysis(
+            heading="",
+            contains_argument="error",
+            summary=text,
+            polarity="N/A",
+            score=0
+        )
+
+    def normalize(self, arr: List[float]):
+        arr = np.array(arr)
+        return (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
+
+    def process_document(self, pdf_path: str, poppler_path: str, tesseract_path: str):
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+        
+        # Step 1: Extract text
+        extracted_text = self.extract_text_with_fallback(pdf_path, poppler_path)
+        
+        # Step 2: Chunk text
+        chunks = self.chunk_lines_simple_tokenizer(extracted_text)
+        
+        # Step 3: Analyze arguments
+        final_output = []
+        texts = []
+        llm_scores = []
+
+        for chunk in chunks:
+            parsed = self.get_argument_analysis(chunk["text"])
+            
+            llm_scores.append(parsed.score)
+            texts.append(chunk["text"])
+
+            def truncate_to_75_words(text):
+                words = text.split()
+                return ' '.join(words[:75]) + ('...' if len(words) > 75 else '')
+
+            final_output.append({
+                "page": chunk["page"],
+                "citation": chunk["citation"],
+                "text": chunk["text"],
+                "heading": parsed.heading,
+                "contains_argument": parsed.contains_argument,
+                "summary": truncate_to_75_words(parsed.summary),
+                "polarity": parsed.polarity,
+                "source": POLARBRIEF_VERSION,
+                "timestamp": datetime.now().isoformat()
+            })
+
+        # TF-IDF Centrality
+        vectorizer = TfidfVectorizer(stop_words='english')
+        tfidf_matrix = vectorizer.fit_transform(texts)
+        centrality_scores = cosine_similarity(tfidf_matrix, tfidf_matrix).mean(axis=1)
+
+        # Combine Scores
+        llm_scores_norm = self.normalize(llm_scores)
+        centrality_scores_norm = self.normalize(centrality_scores)
+        combined_scores = 0.6 * llm_scores_norm + 0.4 * centrality_scores_norm
+
+        # Add final_score
+        for i, item in enumerate(final_output):
+            item["final_score"] = round(combined_scores[i] * 100, 2)
+
+        # Sort by final_score
+        final_output_sorted = sorted(final_output, key=lambda x: x["final_score"], reverse=True)
+        final_output_sorted = [item for item in final_output_sorted if item["contains_argument"].lower() == "yes"]
+        
+        # Take top 10
+        top_10 = final_output_sorted[:10]
+        
+        return {
+            "full_analysis": final_output,
+            "top_arguments": top_10
+        }
