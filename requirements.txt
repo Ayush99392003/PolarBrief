@@ -1,5 +1,9 @@
 streamlit
 pdfplumber
-openai
+pytesseract
 fpdf
-unidecode
+scikit-learn
+pdf2image
+langchain
+langchain_groq
+openai
