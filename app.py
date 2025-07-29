@@ -87,11 +87,6 @@ st.markdown(f"""
 # === Title ===
 st.markdown('<div class="title-box"><h1>PolarBrief AI - Legal Argument Analyzer</h1></div>', unsafe_allow_html=True)
 
-# === Backend Setup ===
-
-poppler_path = r"C:\Users\ayush\Videos\poppler-24.08.0\Library\bin"
-tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
 groq_api_key = os.getenv("GROQ_API_KEY")
 
 # === Upload PDF ===
