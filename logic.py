@@ -13,6 +13,16 @@ from sklearn.metrics.pairwise import cosine_similarity
 from langchain_groq import ChatGroq
 from langchain.schema import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer, PorterStemmer
+from nltk.tokenize import word_tokenize
+
+
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('wordnet')
+
 
 # Constants
 POLARBRIEF_VERSION = "PolarBrief v1.0"
@@ -48,7 +58,6 @@ class DocumentProcessor:
 
     def extract_text_with_fallback(self, pdf_path: str, poppler_path: str) -> List[Dict]:
         final_output = []
-        
         try:
             with pdfplumber.open(pdf_path) as pdf:
                 total_pages = len(pdf.pages)
@@ -69,8 +78,6 @@ class DocumentProcessor:
                                 })
                                 page_line_no += 1
                         continue
-
-                    # OCR Fallback
                     images = convert_from_path(
                         pdf_path, dpi=300, first_page=page_num, 
                         last_page=page_num, poppler_path=poppler_path
@@ -141,6 +148,36 @@ class DocumentProcessor:
             })
 
         return chunks
+
+        # Initialize tools
+        stop_words = set(stopwords.words('english'))
+        lemmatizer = WordNetLemmatizer()
+        stemmer = PorterStemmer()
+
+        def clean_ocr_artifacts(text: str) -> str:
+            if not text:
+                return ""
+            text = re.sub(r'[\.\-]{3,}', ' ', text)
+            text = re.sub(r'[a-zA-Z0-9]{3,}[a-zA-Z0-9\s]{0,}$', '', text)
+            text = re.sub(r'([a-zA-Z0-9])\1{3,}', '', text)
+            text = re.sub(r'\s{2,}', ' ', text).strip()
+            return text
+
+        def preprocess_text(text: str) -> str:
+            text = clean_ocr_artifacts(text)
+            text = text.lower()
+            text = re.sub(r'[^a-z\s]', ' ', text)  
+            tokens = word_tokenize(text)
+            tokens = [word for word in tokens if word not in stop_words]
+            tokens = [stemmer.stem(lemmatizer.lemmatize(word)) for word in tokens]
+            return ' '.join(tokens)
+
+
+        for entry in chunks:
+            if "text" in entry:
+                entry["text"] = preprocess_text(entry["text"])
+
+
 
     def get_argument_analysis(self, text: str) -> ArgumentAnalysis:
         system_prompt = """You are a legal assistant AI.
