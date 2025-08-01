@@ -159,7 +159,7 @@ class DocumentProcessor:
                 return ""
             text = re.sub(r'[\.\-]{3,}', ' ', text)
             text = re.sub(r'[a-zA-Z0-9]{3,}[a-zA-Z0-9\s]{0,}$', '', text)
-            text = re.sub(r'([a-zA-Z0-9])\1{3,}', '', text)
+            text = re.sub(r'([a-zA-Z0-9]){15,}', '', text)
             text = re.sub(r'\s{2,}', ' ', text).strip()
             return text
 
