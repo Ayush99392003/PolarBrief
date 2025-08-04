@@ -5,6 +5,8 @@ import json
 from fpdf import FPDF
 import unicodedata
 from output_files import output_files
+from dotenv import load_dotenv
+load_dotenv()
 # === UI Setup ===
 st.set_page_config(page_title="Legal Argument Analyzer", layout="wide")
 BACKGROUND_IMAGE_URL = "https://i.pinimg.com/736x/64/eb/ef/64ebefbbd558d77f1a1e0d01a4e050c1.jpg"
@@ -143,4 +145,5 @@ if uploaded_file is not None:
                 st.error(f"An error occurred: {str(e)}")
             finally:
                 if os.path.exists(temp_file):
+
                     os.remove(temp_file)
