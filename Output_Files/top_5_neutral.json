@@ -1,0 +1,54 @@
+[
+  {
+    "page": "[p10 10]-[p11 7]",
+    "citation_start": "with rigorous testing. The FDA’s conclusion that a drug is safe and effective must be",
+    "citation_end": "bleeding requiring surgery. App.522. These risks increase later in pregnancy and in",
+    "text": "rigor test fda conclus drug safe effect must base substanti evid expert consensu id fda approv market distribut mifepriston medic termin intrauterin pregnanc day pregnanc app dkt mifepriston synthet steroid caus menstrual bleed disrupt endometrium uterin line termin pregnanc mifepriston nih nat l librari medicin http bit ly ejsn mifepriston gener follow dose misoprostol caus pregnant woman uteru contract expel detach embryo id misoprostol http bit ly dgtpkz fda approv mifepriston subpart h agenc regul implement agenc gener author approv new drug studi safeti effect treat seriou life threaten ill c f r safe use distribut use restrict id satisfi subpart h fda need deem case cv z document file page pageid pregnanc seriou life threaten ill even absenc complic conclud mifepriston safe provid meaning therapeut benefit app cite c f r despit approv mifepriston fda recogn seriou risk urgent advers event associ drug includ incomplet abort sever bleed requir surgeri app",
+    "heading": "The Safety and Effectiveness of Mifepristone",
+    "contains_argument": "yes",
+    "summary": "The FDA's approval of mifepristone is based on substantial evidence and expert consensus. The drug's safety and effectiveness must be rigorously tested, and its use must be restricted to ensure safe distribution and use.",
+    "polarity": "N/A",
+    "source": "polarbrief v1",
+    "timestamp": "2025-08-04T19:31:41.028001",
+    "final_score": 74.96
+  },
+  {
+    "page": "[p19 3-22]",
+    "citation_start": "associated with an increased risk of complications relative to surgical abortion” that",
+    "citation_end": "numerous States’ elected representatives. But the authority to “regulat[e] or",
+    "text": "associ increas risk complic rel surgic abort heighten increas gestat age id b ectop pregnanc id given risk state use regulatori author direct exampl physician may provid drug physician may physic examin ing woman document ing gestat age intrauterin locat pregnanc abort drug must administ room physic presenc physician ensur pregnant woman inform risk monitor complic id see e g ind code ann requir person exam dispens la stat ann requir person dispens okla stat ann tit requir person dispens tex health safeti code ann b prohibit shipment abort induc drug courier deliveri mail servic last like method elect abort elect chemic abort gener unlaw numer state e g miss code ann abort unlaw except necessari preserv mother life pregnanc caus rape action issu fda sought impos feder mail order abort regim disregard protect life health safeti adopt numer state elect author regulat e",
+    "heading": "Risk of Complications in Surgical Abortions",
+    "contains_argument": "yes",
+    "summary": "The risk of complications in surgical abortions increases with gestational age and ectopic pregnancy. States use regulatory authorities to direct physicians to examine women and ensure informed consent.",
+    "polarity": "N/A",
+    "source": "polarbrief v1",
+    "timestamp": "2025-08-04T19:32:11.496945",
+    "final_score": 62.33
+  },
+  {
+    "page": "[p3 8]-[p4 16]",
+    "citation_start": "546 U.S. 243 (2006) ................................................................................................ 12",
+    "citation_end": "Okla. Stat. Ann. tit. 63, § 1-729.1 ............................................................................... 13",
+    "text": "u hillsborough cnti fla v autom med laboratori inc u main v taylor u metro life in co v massachusett u rice v santa fe elev corp u solid wast agenc n cook cnti v u armi corp engin u texa v biden f th th cir texa v unit state f th cir valley v rapid parish sch bd f th cir wage white lion inv llc v fda f th th cir constitut provis u const amend x ii case cv z document file page pageid statut u c u c u c u c u c u c food drug administr amend act pub l stat ind code ann la stat ann miss code ann miss code ann miss code ann okla stat ann tit",
+    "heading": "Federal Regulation of Abortion",
+    "contains_argument": "yes",
+    "summary": "The Food and Drug Administration (FDA) has approved the use of mifepristone, a medication used to terminate pregnancies. The FDA has also issued regulations regarding the sale and distribution of this medication.",
+    "polarity": "N/A",
+    "source": "polarbrief v1",
+    "timestamp": "2025-08-04T19:31:35.969561",
+    "final_score": 34.37
+  },
+  {
+    "page": "[p15 19]-[p16 12]",
+    "citation_start": "argument fails. When Congress established the REMS framework in 2007, it",
+    "citation_end": "other common carrier” to ship “in interstate or foreign commerce ... any drug,",
+    "text": "argument fail congress establish rem framework temporarili deem effect approv risk evalu mitig strategi drug previous approv subpart h element assur safe use pub l b stat requir sponsor drug submit fda propos risk evalu mitig strategi within day id b stat mean case cv z document file page pageid congress deem preexist safeti requir suffici rem program new law new strategi approv law affect whether drug properli author subpart h first place treat seriou life threaten ill c f r congression action blot fda defianc regul second fda action defi feder crimin law longstand feder law provid e articl thing design adapt intend produc abort declar nonmail matter shall convey mail deliv post offic letter carrier u c relat statut make feder crime knowingli use express compani common carrier ship interst foreign commerc drug",
+    "heading": "Argument Fails to Establish a Framework for Risk Evaluation",
+    "contains_argument": "yes",
+    "summary": "The argument fails to establish a framework for risk evaluation and mitigation strategies for new drugs, including mifepriston. The FDA's approval process is criticized for being inadequate.",
+    "polarity": "N/A",
+    "source": "polarbrief v1",
+    "timestamp": "2025-08-04T19:31:46.007592",
+    "final_score": 19.81
+  }
+]
