@@ -8,8 +8,10 @@ from processing import processing
 from llm_analysis import llm_analysis
 import pytesseract
 from output_files import output_files
+from dotenv import load_dotenv
 class DocumentProcessor:
     def __init__(self, poppler_path=None, tesseract_path=None):
+        load_dotenv() 
         self.POLARBRIEF_VERSION = "PolarBrief v1.0"
         if poppler_path:
             self.poppler_path = poppler_path
@@ -50,4 +52,5 @@ class DocumentProcessor:
                 "timestamp": datetime.now().isoformat(),
                 "version": self.POLARBRIEF_VERSION
             }
+
    
