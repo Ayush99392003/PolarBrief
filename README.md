@@ -31,10 +31,10 @@ Required Python packages include:
 
 ### 🔐 3. Set Up Environment Variables (Windows CMD)
 
-Before running the app, set your Groq API key using the Command Prompt:
+Before running the app, set your Groq API key in .env file:
 
-```cmd
-set GROQ_API_KEY=your_groq_api_key_here
+```
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
 ### 4. Install Tesseract & Poppler
@@ -49,7 +49,7 @@ set GROQ_API_KEY=your_groq_api_key_here
 sudo apt install tesseract-ocr poppler-utils
 ```
 
-Update `tesseract_path` and `poppler_path` accordingly in the backend.
+Update `tesseract_path` and `poppler_path` accordingly in the .env file.
 
 ---
 
