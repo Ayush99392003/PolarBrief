@@ -9,6 +9,8 @@ from langchain.schema import HumanMessage, SystemMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()  
 POLARBRIEF_VERSION = "polarbrief v1"
 def llm_analysis(chunks: List[Dict], groq_api_key: str) -> List[Dict]:
     if not groq_api_key:
@@ -189,5 +191,6 @@ def llm_analysis(chunks: List[Dict], groq_api_key: str) -> List[Dict]:
     combined_scores = 0.6 * llm_scores_norm + 0.4 * centrality_scores_norm
     for i, item in enumerate(final_output):
         item["final_score"] = round(combined_scores[i] * 100, 2)
+
 
     return final_output
