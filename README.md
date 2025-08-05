@@ -111,11 +111,10 @@ streamlit run app.py
 | `Docs.zip` | All above in a single ZIP |
 
 ---
----
 
 # ✅ PolarBrief Validation & Citation Accuracy Report
 
-This document summarizes the validation process and results for **PolarBrief AI - Legal Argument Analyzer**, focusing on:
+This document that summarizes the validation process and results for **PolarBrief AI - Legal Argument Analyzer**, which focuses on:
 
 - 📌 Citation correctness (page/citation matching)
 - ✅ Relevance and argument accuracy (manual validation)
