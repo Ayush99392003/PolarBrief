@@ -5,9 +5,9 @@ from typing import List, Dict
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer, PorterStemmer
 from nltk.tokenize import word_tokenize
-from typing import List, Dict
 def downloads_nltk():
     nltk.download('punkt')
+    nltk.download('punkt_tab')
     nltk.download('stopwords')
     nltk.download('wordnet')
 def processing(chunks: List[Dict]) -> List[Dict]:
@@ -34,4 +34,5 @@ def processing(chunks: List[Dict]) -> List[Dict]:
     for entry in chunks:
         if "text" in entry:  
             entry["text"] = preprocess_text(entry["text"])
+
     return chunks
