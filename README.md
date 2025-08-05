@@ -19,15 +19,20 @@ pip install -r requirements.txt
 ```
 
 Required Python packages include:
+
 - `streamlit`
+- `fpdf`
 - `pdfplumber`
 - `pytesseract`
-- `fpdf`
-- `scikit-learn`
 - `pdf2image`
+- `Pillow`
+- `nltk`
+- `scikit-learn`
 - `langchain`
-- `langchain_groq`
-- `openai`
+- `langchain-groq`
+- `groq`
+- `pydantic`
+- `numpy`
 
 ### 🔐 3. Set Up Environment Variables (Windows CMD)
 
@@ -51,6 +56,10 @@ sudo apt install tesseract-ocr poppler-utils
 
 Update `tesseract_path` and `poppler_path` accordingly in the .env file.
 
+```
+POPPLER_PATH=your_path
+TESSERACT_PATH=your_path
+```
 ---
 
 ## 🧪 Run the App
@@ -91,11 +100,14 @@ streamlit run app.py
 
 | File | Description |
 |------|-------------|
-| `all_arguments.json` | Full list of analyzed paragraphs |
-| `top_10.json` | Top 10 scored legal arguments |
+| `all_arguments.json` | Full list of summary of analyzed paragraphs |
+| `balanced_arguments.json` | Top 5 pro and 5 con legal arguments |
 | `index.json` | Page, citation, and heading info only |
+| `top_5_neutral.json` | Contains important argument with neutral polarity |
 | `all_arguments.pdf` | Full PDF report |
 | `index.pdf` | Index |
+| `top_5_neutral.pdf`| Contains neutral arguments |
+| `balanced_arguments.pdf`| Top 5 pro/con arguments |
 | `Docs.zip` | All above in a single ZIP |
 
 ---
