@@ -1,9 +1,13 @@
 streamlit
+fpdf
 pdfplumber
 pytesseract
-fpdf
-scikit-learn
 pdf2image
+Pillow
+nltk
+scikit-learn
 langchain
-langchain_groq
-openai
+langchain-groq
+groq
+pydantic
+numpy
