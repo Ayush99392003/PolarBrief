@@ -77,7 +77,7 @@ streamlit run app.py
 - Detect polarity (Pro/Con).
 - Score arguments based on relevance, clarity, and weight.
 - Provide downloadable results in JSON and PDF format.
-- Visualize top arguments and citations directly in the UI.
+- Visualize top 5 pro/con arguments and citations directly in the UI.
 
 ---
 
@@ -86,13 +86,9 @@ streamlit run app.py
 - 📄 Upload any legal PDF document.
 - 🔍 Hybrid OCR (Tesseract) and native text extraction (pdfplumber).
 - 🧠 AI-powered argument detection, heading generation, and summarization.
-- ⚖️ Classify arguments as *Pro (Plaintiff)* or *Con (Defendant)*.
+- ⚖️ Classify arguments as *Pro (Plaintiff)* or *Con (Defendant)* or *N/A(Neutral)*.
 - 📈 Weighted scoring using LLM + TF-IDF centrality.
-- 📥 Download ZIP bundle containing:
-  - Ranked argument JSON
-  - Top 10 arguments JSON
-  - Minimal citation info
-  - PDF reports
+- 📥 Download ZIP bundle containing different json and pdf files .
 
 
 
