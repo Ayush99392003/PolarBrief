@@ -96,7 +96,7 @@ streamlit run app.py
 
 
 
-## 📁 Output Files
+## 📁 Output Files 
 
 | File | Description |
 |------|-------------|
@@ -109,6 +109,23 @@ streamlit run app.py
 | `top_5_neutral.pdf`| Contains neutral arguments |
 | `balanced_arguments.pdf`| Top 5 pro/con arguments |
 | `Docs.zip` | All above in a single ZIP |
+
+---
+---
+
+# ✅ PolarBrief Validation & Citation Accuracy Report
+
+This document summarizes the validation process and results for **PolarBrief AI - Legal Argument Analyzer**, focusing on:
+
+- 📌 Citation correctness (page/citation matching)
+- ✅ Relevance and argument accuracy (manual validation)
+
+---
+
+## 📎 Attached Reports
+
+- `validation_report.pdf`: Summary of citation and manual validation.
+- `accuracy_report.ipynb`: Jupyter Notebook used for analysis (if needed for reproduction).
 
 ---
 
