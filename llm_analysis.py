@@ -1,34 +1,80 @@
+"""
+LLM analysis module for PolarBrief AI.
+
+This module defines the `llm_analysis` function, which:
+    - Sends text chunks to a Groq LLM for legal argument analysis
+    - Validates and parses JSON responses using Pydantic
+    - Assigns scores based on LLM output and TF-IDF centrality
+    - Returns structured analysis with metadata
+"""
+
 import os
 import json
 import re
-import numpy as np
+from datetime import datetime
 from typing import List, Annotated, Dict
-from pydantic import BaseModel, Field, StringConstraints, ValidationError, TypeAdapter
+
+import numpy as np
+from dotenv import load_dotenv
+from pydantic import (
+    BaseModel,
+    Field,
+    StringConstraints,
+    ValidationError,
+    TypeAdapter,
+)
 from langchain_groq import ChatGroq
 from langchain.schema import HumanMessage, SystemMessage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from datetime import datetime
-from dotenv import load_dotenv
-load_dotenv()  
+
+load_dotenv()
+
 POLARBRIEF_VERSION = "polarbrief v1"
+
+
 def llm_analysis(chunks: List[Dict], groq_api_key: str) -> List[Dict]:
+    """
+    Perform LLM-based legal argument analysis on a list of text chunks.
+
+    This function:
+        1. Sends batches of text chunks to a Groq-hosted LLM.
+        2. Extracts and validates structured JSON responses.
+        3. Calculates combined scores from LLM output and TF-IDF centrality.
+        4. Returns structured results with metadata.
+
+    Args:
+        chunks (List[Dict]): List of text chunks to analyze.
+        groq_api_key (str): Groq API key for LLM access.
+
+    Returns:
+        List[Dict]: Structured analysis results with metadata and scores.
+
+    Raises:
+        ValueError: If the Groq API key is missing.
+    """
     if not groq_api_key:
         raise ValueError("GROQ API key is required for analysis.")
-    
+
     os.environ["GROQ_API_KEY"] = groq_api_key
+
     llm = ChatGroq(
-    model_name="llama3-8b-8192",
-    temperature=0,
+        model_name="llama3-8b-8192",
+        temperature=0,
     )
+
     class ArgumentAnalysis(BaseModel):
+        """Schema for validated LLM argument analysis output."""
+
         heading: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
         contains_argument: Annotated[str, StringConstraints(pattern="^(yes|no)$")]
         summary: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
         polarity: Annotated[str, StringConstraints(pattern="^(Pro|Con|N/A)$")]
         score: Annotated[int, Field(ge=0, le=100)]
-    # Adapter for validating list of ArgumentAnalysis
+
+    # Adapter for validating a list of ArgumentAnalysis
     ArgumentListAdapter = TypeAdapter(List[ArgumentAnalysis])
+
     # ===== Shared System Prompt =====
     SYSTEM_PROMPT = """
     You are a legal assistant AI. You must read the given legal paragraph(s) and produce ONLY a valid JSON array.
@@ -89,52 +135,64 @@ def llm_analysis(chunks: List[Dict], groq_api_key: str) -> List[Dict]:
     ]
     OUTPUT_JSON:
     """
+
     # ===== JSON Extraction & Validation =====
     def extract_and_validate_json(text: str) -> List[ArgumentAnalysis] | None:
         """Extract the first JSON array from text and validate with Pydantic."""
-        match = re.search(r'\[\s*\{.*\}\s*\]', text, re.DOTALL)
+        match = re.search(r"\[\s*\{.*\}\s*\]", text, re.DOTALL)
         if not match:
             return None
+
         raw_json = match.group(0)
         raw_json = raw_json.replace("“", '"').replace("”", '"')
         raw_json = raw_json.replace("‘", "'").replace("’", "'")
-        raw_json = re.sub(r',\s*([\]}])', r'\1', raw_json)  
+        raw_json = re.sub(r",\s*([\]}])", r"\1", raw_json)
+
         try:
             parsed = json.loads(raw_json)
             return ArgumentListAdapter.validate_python(parsed)
         except (json.JSONDecodeError, ValidationError):
             return None
+
     # ===== Batch Processing =====
     def get_batch_argument_analysis(texts: List[str]) -> List[ArgumentAnalysis]:
+        """Send a batch of paragraphs to the LLM and return validated analysis."""
         numbered_paragraphs = "\n".join(
             [f"{i+1}. {t}" for i, t in enumerate(texts)]
         )
         expected_count = len(texts)
+
         strict_prompt = f"""
-    You will read the following {expected_count} paragraphs and produce exactly {expected_count} JSON objects.
-    Do not merge or skip any paragraph. Output only the JSON array.
-    PARAGRAPHS:
-    {numbered_paragraphs}
-    """
+        You will read the following {expected_count} paragraphs and produce exactly {expected_count} JSON objects.
+        Do not merge or skip any paragraph. Output only the JSON array.
+        PARAGRAPHS:
+        {numbered_paragraphs}
+        """
+
         try:
             response = llm(
                 [
                     SystemMessage(content=SYSTEM_PROMPT),
-                    HumanMessage(content=strict_prompt)
+                    HumanMessage(content=strict_prompt),
                 ]
             )
             parsed_list = extract_and_validate_json(response.content)
             if parsed_list and len(parsed_list) == expected_count:
                 return parsed_list
-            print(f"⚠ LLM returned {len(parsed_list) if parsed_list else 0} items instead of {expected_count}")
+
+            print(
+                f"⚠ LLM returned {len(parsed_list) if parsed_list else 0} "
+                f"items instead of {expected_count}"
+            )
             return [
                 ArgumentAnalysis(
                     heading="[No heading extracted]",
                     contains_argument="no",
                     summary="[No summary extracted]",
                     polarity="N/A",
-                    score=0
-                ) for _ in texts
+                    score=0,
+                )
+                for _ in texts
             ]
         except Exception as e:
             print(f"Batch LLM request error: {e}")
@@ -144,53 +202,72 @@ def llm_analysis(chunks: List[Dict], groq_api_key: str) -> List[Dict]:
                     contains_argument="no",
                     summary="[No summary extracted]",
                     polarity="N/A",
-                    score=0
-                ) for _ in texts
+                    score=0,
+                )
+                for _ in texts
             ]
+
     # ===== Dynamic batching =====
     def dynamic_batches(data: List, batch_size: int = 5):
         """Yield batches of up to `batch_size` from a list."""
         for i in range(0, len(data), batch_size):
-            yield data[i:i + batch_size]
+            yield data[i : i + batch_size]
+
     # ===== Normalization =====
     def normalize(arr: List[float]):
+        """Normalize a numeric array to the range [0, 1]."""
         arr = np.array(arr)
         return (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
+
     # ===== Main Pipeline =====
     final_output = []
     texts = []
     llm_scores = []
+
     for batch_chunks in dynamic_batches(chunks, batch_size=5):
-        batch_texts = [c.get("text", "").strip() or "[Empty text]" for c in batch_chunks]
+        batch_texts = [
+            c.get("text", "").strip() or "[Empty text]" for c in batch_chunks
+        ]
         batch_results = get_batch_argument_analysis(batch_texts)
+
         for chunk, parsed in zip(batch_chunks, batch_results):
             llm_scores.append(parsed.score)
             texts.append(chunk.get("text", "[Empty text]"))
-            final_output.append({
-                "page": chunk.get("page"),
-                "citation_start": chunk.get("citation_start"),
-                "citation_end": chunk.get("citation_end"),
-                "text": chunk.get("text", "[Empty text]"),
-                "heading": parsed.heading,
-                "contains_argument": parsed.contains_argument,
-                "summary": parsed.summary,
-                "polarity": parsed.polarity,
-                "source": POLARBRIEF_VERSION,
-                "timestamp": datetime.now().isoformat()
-            })
+            final_output.append(
+                {
+                    "page": chunk.get("page"),
+                    "citation_start": chunk.get("citation_start"),
+                    "citation_end": chunk.get("citation_end"),
+                    "text": chunk.get("text", "[Empty text]"),
+                    "heading": parsed.heading,
+                    "contains_argument": parsed.contains_argument,
+                    "summary": parsed.summary,
+                    "polarity": parsed.polarity,
+                    "source": POLARBRIEF_VERSION,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
+
     # ===== TF-IDF Centrality Scoring =====
     if any(t.strip() for t in texts):
-        vectorizer = TfidfVectorizer(stop_words='english')
+        vectorizer = TfidfVectorizer(stop_words="english")
         tfidf_matrix = vectorizer.fit_transform(texts)
-        centrality_scores = cosine_similarity(tfidf_matrix, tfidf_matrix).mean(axis=1)
+        centrality_scores = cosine_similarity(tfidf_matrix, tfidf_matrix).mean(
+            axis=1
+        )
     else:
         centrality_scores = np.zeros(len(texts))
+
     # ===== Combine Scores =====
     llm_scores_norm = normalize(llm_scores)
     centrality_scores_norm = normalize(centrality_scores)
-    combined_scores = 0.6 * llm_scores_norm + 0.4 * centrality_scores_norm
+    combined_scores = (
+        0.6 * llm_scores_norm + 0.4 * centrality_scores_norm
+    )
+
     for i, item in enumerate(final_output):
         item["final_score"] = round(combined_scores[i] * 100, 2)
 
-
     return final_output
+
+
