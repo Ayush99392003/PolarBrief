@@ -16,7 +16,8 @@ from PIL import Image
 import pdfplumber
 
 
-def pdf_extraction(pdf_path: str) -> List[Dict]:
+def pdf_extraction(pdf_path: str, poppler_path: str , tesseract_path: str) -> List[Dict]:
+   
     """
     Extract text from a PDF, falling back to OCR if necessary.
 
@@ -29,6 +30,10 @@ def pdf_extraction(pdf_path: str) -> List[Dict]:
             - "page_no": Page and line identifier.
             - "method": Extraction method ("pdfplumber" or "ocr").
     """
+
+    # Configure Tesseract path for OCR (Windows)
+    if tesseract_path:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
     def clean_text(text: str) -> str:
         """Clean extracted text by removing bullets, symbols, and extra spaces."""
@@ -112,3 +117,4 @@ def pdf_extraction(pdf_path: str) -> List[Dict]:
 
     output = extract_text_with_fallback(pdf_path)
     return output
+
